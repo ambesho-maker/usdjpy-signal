@@ -1,7 +1,7 @@
 import csv, glob, json, os, sys, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
 
-OUTPUTSIZE = 12
+OUTPUTSIZE = 96
 FIELDS = ["datetime", "open", "high", "low", "close"]
 FMT = "%Y-%m-%dT%H:%M:%SZ"
 
