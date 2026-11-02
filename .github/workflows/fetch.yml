@@ -24,9 +24,15 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data
-          if ! git diff --cached --quiet; then
+          for i in 1 2 3; do
+            git add data
+            if git diff --cached --quiet; then exit 0; fi
             git commit -m "update $(date -u +%Y-%m-%dT%H:%MZ)"
-            git pull --rebase
-            git push
-          fi
+            if git push; then exit 0; fi
+            git fetch origin main
+            git reset --hard origin/main
+            python fetch.py
+          done
+          echo "push failed 3 times"
+          exit 1
+
