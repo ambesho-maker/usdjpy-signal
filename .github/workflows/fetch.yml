@@ -1,7 +1,7 @@
 name: fetch-usdjpy
 on:
   schedule:
-    - cron: "*/5 * * * 1-5"
+    - cron: "3-58/5 * * * 1-5"
   workflow_dispatch:
 permissions:
   contents: write
