@@ -51,7 +51,7 @@ def make_features(df):
     f["vol_12"], f["vol_48"] = r1.rolling(12).std(), r1.rolling(48).std()
     hour = f.index.hour + f.index.minute / 60
     f["hour_sin"], f["hour_cos"] = np.sin(2 * np.pi * hour / 24), np.cos(2 * np.pi * hour / 24)
-    f["dow"] = f.index.dayofweek
+    f["dow"] = f.index.day_of_week
     return f
 
 
@@ -89,3 +89,5 @@ if __name__ == "__main__":
         use = ok & col.notna()
         s = col[use]
         print(f"[{name}] 学習可能 {int(use.sum())}行 | 平均 {s.mean():+.2f}pips 標準偏差 {s.std():.1f}pips 上昇割合 {(s > 0).mean():.1%}")
+    flat = (df["high"] == df["low"]).sum()
+    print(f"土日の行: {int((df.index.day_of_week >= 5).sum())} / 値動きゼロの足: {int(flat)}")
