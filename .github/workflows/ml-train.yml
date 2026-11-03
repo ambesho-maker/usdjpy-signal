@@ -1,0 +1,27 @@
+name: ml-train
+on:
+  workflow_dispatch:
+    inputs:
+      test_months:
+        description: "検証する直近の月数"
+        default: "6"
+      cost_pips:
+        description: "往復コスト(pips)の仮定"
+        default: "0.5"
+permissions:
+  contents: read
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas numpy lightgbm xgboost
+      - name: Train and evaluate
+        env:
+          TEST_MONTHS: ${{ inputs.test_months }}
+          COST_PIPS: ${{ inputs.cost_pips }}
+        run: python ml/train.py
