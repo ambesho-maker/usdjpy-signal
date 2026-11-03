@@ -15,7 +15,11 @@ def load_data(pattern="data/usdjpy_5min_*.csv"):
     df = pd.concat(frames, ignore_index=True)
     df["datetime"] = pd.to_datetime(df["datetime"], utc=True)
     df = df.drop_duplicates("datetime").sort_values("datetime").set_index("datetime")
-    return df[["open", "high", "low", "close"]].astype(float)
+    df = df[["open", "high", "low", "close"]].astype(float)
+    dow, hour = df.index.day_of_week, df.index.hour
+    closed = (dow == 5) | ((dow == 6) & (hour < 23)) | ((dow == 4) & (hour >= 21))
+    return df[~closed]
+
 
 
 def _rsi(close, n=14):
