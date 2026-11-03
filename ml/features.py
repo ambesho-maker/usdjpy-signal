@@ -91,3 +91,5 @@ if __name__ == "__main__":
         print(f"[{name}] 学習可能 {int(use.sum())}行 | 平均 {s.mean():+.2f}pips 標準偏差 {s.std():.1f}pips 上昇割合 {(s > 0).mean():.1%}")
     flat = (df["high"] == df["low"]).sum()
     print(f"土日の行: {int((df.index.day_of_week >= 5).sum())} / 値動きゼロの足: {int(flat)}")
+    for d, x in df.groupby(df.index.day_of_week):
+        print(f"曜日{d}(0=月): {len(x)}行 平均レンジ {((x['high'] - x['low']) * 100).mean():.2f}pips 時間帯 {x.index.hour.nunique()}/24")
