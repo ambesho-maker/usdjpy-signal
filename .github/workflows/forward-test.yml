@@ -1,0 +1,37 @@
+name: forward-test
+on:
+  schedule:
+    - cron: "17 8 * * 1-5"   # UTC 08:17（日本時間17:17）平日。記録は月〜木のみ、金は答え合わせ
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "テスト用: 曜日・日付の制限を外して記録する(true/false)"
+        default: "false"
+permissions:
+  contents: write
+concurrency:
+  group: forward-test
+  cancel-in-progress: false
+jobs:
+  forward:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas numpy scikit-learn lightgbm xgboost
+      - name: Record and settle
+        env:
+          COST_PIPS: "1.0"
+          FORCE: ${{ inputs.force }}
+        run: python ml/forward.py
+      - name: Commit records
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add forward
+          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
+          git commit -m "forward $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push || (git pull --rebase && git push)
