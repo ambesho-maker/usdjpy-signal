@@ -2,34 +2,79 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>USD/JPY</title>
 <style>
-:root{--bg:#fff;--fg:#111;--card:#f2f2f7;--mut:#6b6b70}
-@media(prefers-color-scheme:dark){:root{--bg:#000;--fg:#f2f2f7;--card:#1c1c1e;--mut:#98989f}}
+:root{--bg:#fff;--fg:#111;--card:#f2f2f7;--mut:#6b6b70;--up:#1a7f37;--dn:#c62828}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--fg:#f2f2f7;--card:#1c1c1e;--mut:#98989f;--up:#4cd964;--dn:#ff6b6b}}
 body{margin:0;padding:16px;font-family:-apple-system,sans-serif;background:var(--bg);color:var(--fg)}
 .card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:12px}
 .rate{font-size:44px;font-weight:700}.mut{color:var(--mut);font-size:13px}
-.sig{font-size:28px;font-weight:700}
+.sig{font-size:32px;font-weight:700}.BUY{color:var(--up)}.SELL{color:var(--dn)}
+.row{display:flex;justify-content:space-between;padding:3px 0;font-size:15px}
 table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 4px;text-align:right}
 th:first-child,td:first-child{text-align:left}
+.warn{font-size:12px;color:var(--mut);margin-top:8px}
 </style></head><body>
 <div class="card"><div class="mut">USD/JPY（5分足・確定値）</div>
 <div class="rate" id="rate">--</div><div class="mut" id="time">読み込み中…</div></div>
-<div class="card"><div class="mut">シグナル</div><div class="sig" id="sig">WAIT</div>
-<div class="mut" id="note"></div></div>
-<div class="card"><table><thead><tr><th>時刻(JST)</th><th>始値</th><th>高値</th><th>安値</th><th>終値</th></tr></thead>
+
+<div class="card"><div class="mut">検証中のシグナル（翌日予測・LightGBM）</div>
+<div class="sig" id="sig">--</div><div class="mut" id="sigdetail">記録待ち</div>
+<div class="warn">ペーパートレード（発注なし）。検証が終わるまで投資判断に使わないこと。</div></div>
+
+<div class="card"><div class="mut">前向き検証の成績（往復コスト込み）</div>
+<div class="row"><span>判定</span><b id="verdict">--</b></div>
+<div class="row"><span>取引数 / 勝ち</span><span id="trades">--</span></div>
+<div class="row"><span>合計 / 平均</span><span id="pips">--</span></div>
+<div class="row"><span>最大ドローダウン</span><span id="dd">--</span></div>
+<div class="row"><span>答え合わせ待ち / WAIT</span><span id="pending">--</span></div>
+<div class="warn" id="crit"></div></div>
+
+<div class="card"><div class="mut">直近の記録</div>
+<table><thead><tr><th>時刻(JST)</th><th>判定</th><th>予測</th><th>結果</th></tr></thead>
+<tbody id="frows"><tr><td colspan="4" class="mut">記録なし</td></tr></tbody></table></div>
+
+<div class="card"><div class="mut">5分足（直近）</div>
+<table><thead><tr><th>時刻(JST)</th><th>始値</th><th>高値</th><th>安値</th><th>終値</th></tr></thead>
 <tbody id="rows"></tbody></table></div>
 <script>
+const $=id=>document.getElementById(id);
 const f=n=>Number(n).toFixed(3);
 const jst=s=>new Date(s).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
 const user=location.hostname.split('.')[0], repo=location.pathname.split('/')[1];
-const URL_=`https://raw.githubusercontent.com/${user}/${repo}/main/data/latest.json`;
-async function load(){
- try{const d=await (await fetch(URL_+'?t='+Date.now())).json();
- if(!d.candles.length){time.textContent='データなし';return}
+const RAW=`https://raw.githubusercontent.com/${user}/${repo}/main/`;
+const get=async(p,json)=>{const r=await fetch(RAW+p+'?t='+Date.now());if(!r.ok)throw new Error(r.status);return json?r.json():r.text()};
+const sign=v=>v===''||isNaN(v)?'':(v>0?'+':'')+Number(v).toFixed(1);
+
+async function loadPrice(){
+ try{const d=await get('data/latest.json',true);
+ if(!d.candles.length){$('time').textContent='データなし';return}
  const c=d.candles[0];
- rate.textContent=f(c.close);time.textContent='足の開始: '+jst(c.datetime);
- sig.textContent=d.signal;note.textContent=d.signal_note;
- rows.innerHTML=d.candles.map(x=>`<tr><td>${jst(x.datetime)}</td><td>${f(x.open)}</td><td>${f(x.high)}</td><td>${f(x.low)}</td><td>${f(x.close)}</td></tr>`).join('');
- }catch(e){time.textContent='取得エラー（データ未生成の可能性）'}
+ $('rate').textContent=f(c.close);$('time').textContent='足の開始: '+jst(c.datetime);
+ $('rows').innerHTML=d.candles.slice(0,24).map(x=>`<tr><td>${jst(x.datetime)}</td><td>${f(x.open)}</td><td>${f(x.high)}</td><td>${f(x.low)}</td><td>${f(x.close)}</td></tr>`).join('');
+ }catch(e){$('time').textContent='取得エラー（データ未生成の可能性）'}
 }
-load();setInterval(load,60000);
+function parseCsv(t){
+ const L=t.trim().split('\n');const h=L[0].split(',');
+ return L.slice(1).filter(x=>x).map(l=>{const v=l.split(',');const o={};h.forEach((k,i)=>o[k]=v[i]);return o});
+}
+async function loadForward(){
+ try{const s=await get('forward/summary.json',true);
+  $('verdict').textContent=s.verdict;
+  $('trades').textContent=`${s.trades}回 / ${s.wins}勝`;
+  $('pips').textContent=`${sign(s.total_pips)} / ${sign(s.mean_pips)} pips`;
+  $('dd').textContent=`${s.max_dd_pips} pips`;
+  $('pending').textContent=`${s.open}件 / ${s.wait}回`;
+  $('crit').textContent='合格基準: '+s.criteria;
+ }catch(e){$('verdict').textContent='記録待ち'}
+ try{const rows=parseCsv(await get('forward/predictions.csv',false));
+  if(!rows.length)return;
+  const last=rows[rows.length-1];
+  $('sig').textContent=last.signal;$('sig').className='sig '+last.signal;
+  $('sigdetail').textContent=`${jst(last.entry_time)} 時点 / 予測 ${sign(last.pred_pips)} pips / しきい値 ±${last.threshold}`;
+  $('frows').innerHTML=rows.slice(-10).reverse().map(r=>{
+   const res=r.status==='settled'?sign(r.net_pips):(r.status==='open'?'待ち':'欠損');
+   return `<tr><td>${jst(r.entry_time)}</td><td class="${r.signal}">${r.signal}</td><td>${sign(r.pred_pips)}</td><td>${res}</td></tr>`}).join('');
+ }catch(e){$('sigdetail').textContent='記録待ち'}
+}
+loadPrice();loadForward();
+setInterval(()=>{loadPrice();loadForward()},60000);
 </script></body></html>
