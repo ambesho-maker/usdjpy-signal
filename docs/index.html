@@ -2,8 +2,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>USD/JPY</title>
 <style>
-:root{--bg:#fff;--fg:#111;--card:#f2f2f7;--mut:#6b6b70;--up:#1a7f37;--dn:#c62828}
-@media(prefers-color-scheme:dark){:root{--bg:#000;--fg:#f2f2f7;--card:#1c1c1e;--mut:#98989f;--up:#4cd964;--dn:#ff6b6b}}
+:root{--bg:#fff;--fg:#111;--card:#f2f2f7;--mut:#6b6b70;--up:#1a7f37;--dn:#c62828;--line:#0a64d8}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--fg:#f2f2f7;--card:#1c1c1e;--mut:#98989f;--up:#4cd964;--dn:#ff6b6b;--line:#64a8ff}}
 body{margin:0;padding:16px;font-family:-apple-system,sans-serif;background:var(--bg);color:var(--fg)}
 .card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:12px}
 .rate{font-size:44px;font-weight:700}.mut{color:var(--mut);font-size:13px}
@@ -12,9 +12,11 @@ body{margin:0;padding:16px;font-family:-apple-system,sans-serif;background:var(-
 table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 4px;text-align:right}
 th:first-child,td:first-child{text-align:left}
 .warn{font-size:12px;color:var(--mut);margin-top:8px}
+.chart{margin-top:10px}.chart svg{display:block}.up{stroke:var(--up)}.dn{stroke:var(--dn)}
 </style></head><body>
 <div class="card"><div class="mut">USD/JPY（5分足・確定値）</div>
-<div class="rate" id="rate">--</div><div class="mut" id="time">読み込み中…</div></div>
+<div class="rate" id="rate">--</div><div class="mut" id="time">読み込み中…</div>
+<div class="chart" id="pchart"></div><div class="mut" id="pnote"></div></div>
 
 <div class="card"><div class="mut">検証中のシグナル（翌日予測・LightGBM）</div>
 <div class="sig" id="sig">--</div><div class="mut" id="sigdetail">記録待ち</div>
@@ -26,6 +28,7 @@ th:first-child,td:first-child{text-align:left}
 <div class="row"><span>合計 / 平均</span><span id="pips">--</span></div>
 <div class="row"><span>最大ドローダウン</span><span id="dd">--</span></div>
 <div class="row"><span>答え合わせ待ち / WAIT</span><span id="pending">--</span></div>
+<div class="chart" id="cchart"></div><div class="mut" id="cnote"></div>
 <div class="warn" id="crit"></div></div>
 
 <div class="card"><div class="mut">直近の記録</div>
@@ -44,11 +47,35 @@ const RAW=`https://raw.githubusercontent.com/${user}/${repo}/main/`;
 const get=async(p,json)=>{const r=await fetch(RAW+p+'?t='+Date.now());if(!r.ok)throw new Error(r.status);return json?r.json():r.text()};
 const sign=v=>v===''||isNaN(v)?'':(v>0?'+':'')+Number(v).toFixed(1);
 
+const svgLine=(vals,o)=>{
+ o=o||{};const W=340,H=150,pl=48,pr=8,pt=10,pb=10;
+ if(vals.length<2)return '';
+ let mn=Math.min(...vals),mx=Math.max(...vals);
+ if(o.zero){mn=Math.min(mn,0);mx=Math.max(mx,0)}
+ if(mx===mn){mx+=1;mn-=1}
+ const pad=(mx-mn)*0.08;mn-=pad;mx+=pad;
+ const x=i=>pl+(W-pl-pr)*i/(vals.length-1);
+ const y=v=>pt+(H-pt-pb)*(1-(v-mn)/(mx-mn));
+ const pts=vals.map((v,i)=>x(i).toFixed(1)+','+y(v).toFixed(1)).join(' ');
+ const cls=o.cls||'';const fmt=o.fmt||(v=>v.toFixed(1));
+ let g='';
+ if(o.zero)g+=`<line x1="${pl}" x2="${W-pr}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" style="stroke:var(--mut)" stroke-dasharray="3 3" stroke-width="1"/>`;
+ g+=`<polyline class="${cls}" fill="none" style="${cls?'':'stroke:var(--line)'}" stroke-width="2" stroke-linejoin="round" points="${pts}"/>`;
+ const lx=x(vals.length-1).toFixed(1),ly=y(vals[vals.length-1]).toFixed(1);
+ g+=`<circle cx="${lx}" cy="${ly}" r="3.5" style="fill:var(--fg)"/>`;
+ g+=`<text x="${pl-5}" y="${pt+8}" text-anchor="end" font-size="10" style="fill:var(--mut)">${fmt(mx-pad)}</text>`;
+ g+=`<text x="${pl-5}" y="${H-pb}" text-anchor="end" font-size="10" style="fill:var(--mut)">${fmt(mn+pad)}</text>`;
+ return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">${g}</svg>`;
+};
+
 async function loadPrice(){
  try{const d=await get('data/latest.json',true);
  if(!d.candles.length){$('time').textContent='データなし';return}
  const c=d.candles[0];
  $('rate').textContent=f(c.close);$('time').textContent='足の開始: '+jst(c.datetime);
+ const cl=d.candles.map(x=>Number(x.close)).reverse();
+ $('pchart').innerHTML=svgLine(cl,{cls:cl[cl.length-1]>=cl[0]?'up':'dn',fmt:v=>v.toFixed(2)});
+ $('pnote').textContent=`直近${cl.length}本（約${Math.round(cl.length*5/60)}時間）の終値`;
  $('rows').innerHTML=d.candles.slice(0,24).map(x=>`<tr><td>${jst(x.datetime)}</td><td>${f(x.open)}</td><td>${f(x.high)}</td><td>${f(x.low)}</td><td>${f(x.close)}</td></tr>`).join('');
  }catch(e){$('time').textContent='取得エラー（データ未生成の可能性）'}
 }
@@ -67,6 +94,11 @@ async function loadForward(){
  }catch(e){$('verdict').textContent='記録待ち'}
  try{const rows=parseCsv(await get('forward/predictions.csv',false));
   if(!rows.length)return;
+  const done=rows.filter(r=>r.status==='settled'&&r.signal!=='WAIT');
+  if(done.length){let c=0;const cum=[0].concat(done.map(r=>c+=Number(r.net_pips)));
+   $('cchart').innerHTML=svgLine(cum,{zero:true,cls:cum[cum.length-1]>=0?'up':'dn',fmt:v=>sign(v)});
+   $('cnote').textContent=`累積損益（pips）: 取引${done.length}回、現在 ${sign(cum[cum.length-1])}`}
+  else $('cnote').textContent='答え合わせが済むと、累積損益のグラフが出ます';
   const last=rows[rows.length-1];
   $('sig').textContent=last.signal;$('sig').className='sig '+last.signal;
   $('sigdetail').textContent=`${jst(last.entry_time)} 時点 / 予測 ${sign(last.pred_pips)} pips / しきい値 ±${last.threshold}`;
