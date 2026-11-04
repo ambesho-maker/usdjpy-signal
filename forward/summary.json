@@ -1,15 +1,15 @@
 {
- "updated": "2026-11-03T08:24:29Z",
+ "updated": "2026-11-04T09:02:40Z",
  "cost_pips": 1.0,
- "records": 1,
- "wait": 0,
+ "records": 2,
+ "wait": 1,
  "open": 1,
- "trades": 0,
- "wins": 0,
- "total_pips": 0.0,
- "mean_pips": 0.0,
+ "trades": 1,
+ "wins": 1,
+ "total_pips": 31.2,
+ "mean_pips": 31.16,
  "max_dd_pips": 0.0,
  "t_value": 0.0,
  "criteria": "取引60回以上で、合計>0 かつ 平均>=4.3pips",
- "verdict": "判定前（あと60回）"
+ "verdict": "判定前（あと59回）"
 }
