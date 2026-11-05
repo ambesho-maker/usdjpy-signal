@@ -28,12 +28,14 @@ th:first-child,td:first-child{text-align:left}
 <div class="row"><span>合計 / 平均</span><span id="pips">--</span></div>
 <div class="row"><span>最大ドローダウン</span><span id="dd">--</span></div>
 <div class="row"><span>答え合わせ待ち / WAIT</span><span id="pending">--</span></div>
+<div class="row"><span>予測のズレ（平均）/ 方向一致</span><span id="err">--</span></div>
 <div class="chart" id="cchart"></div><div class="mut" id="cnote"></div>
 <div class="warn" id="crit"></div></div>
 
 <div class="card"><div class="mut">直近の記録</div>
-<table><thead><tr><th>時刻(JST)</th><th>判定</th><th>予測</th><th>結果</th></tr></thead>
-<tbody id="frows"><tr><td colspan="4" class="mut">記録なし</td></tr></tbody></table></div>
+<table><thead><tr><th>時刻(JST)</th><th>判定</th><th>予測</th><th>実際(ズレ)</th><th>損益</th></tr></thead>
+<tbody id="frows"><tr><td colspan="5" class="mut">記録なし</td></tr></tbody></table>
+<div class="warn">予測・実際は24時間後の変動幅(pips)。ズレ＝実際−予測。損益はコスト込みで、WAITは売買しないため「見送り」。</div></div>
 
 <div class="card"><div class="mut">5分足（直近）</div>
 <table><thead><tr><th>時刻(JST)</th><th>始値</th><th>高値</th><th>安値</th><th>終値</th></tr></thead>
@@ -83,6 +85,19 @@ function parseCsv(t){
  const L=t.trim().split('\n');const h=L[0].split(',');
  return L.slice(1).filter(x=>x).map(l=>{const v=l.split(',');const o={};h.forEach((k,i)=>o[k]=v[i]);return o});
 }
+function frow(r){
+ const ok=r.status==='settled',g=Number(r.gross_pips),p=Number(r.pred_pips);
+ const act=ok?`${sign(g)}<br><span class="mut">ズレ ${sign(g-p)}</span>`:(r.status==='open'?'待ち':'欠損');
+ const pl=ok?(r.signal==='WAIT'?'見送り':sign(r.net_pips)):'';
+ return `<tr><td>${jst(r.entry_time)}</td><td class="${r.signal}">${r.signal}</td><td>${sign(p)}</td><td>${act}</td><td>${pl}</td></tr>`;
+}
+function errStats(rows){
+ const s=rows.filter(r=>r.status==='settled');
+ if(!s.length)return '--';
+ const e=s.map(r=>Math.abs(Number(r.gross_pips)-Number(r.pred_pips)));
+ const hit=s.filter(r=>(Number(r.gross_pips)>0)===(Number(r.pred_pips)>0)).length;
+ return `${(e.reduce((a,b)=>a+b,0)/e.length).toFixed(1)} pips / ${hit}/${s.length}`;
+}
 async function loadForward(){
  try{const s=await get('forward/summary.json',true);
   $('verdict').textContent=s.verdict;
@@ -102,9 +117,8 @@ async function loadForward(){
   const last=rows[rows.length-1];
   $('sig').textContent=last.signal;$('sig').className='sig '+last.signal;
   $('sigdetail').textContent=`${jst(last.entry_time)} 時点 / 予測 ${sign(last.pred_pips)} pips / しきい値 ±${last.threshold}`;
-  $('frows').innerHTML=rows.slice(-10).reverse().map(r=>{
-   const res=r.status==='settled'?sign(r.net_pips):(r.status==='open'?'待ち':'欠損');
-   return `<tr><td>${jst(r.entry_time)}</td><td class="${r.signal}">${r.signal}</td><td>${sign(r.pred_pips)}</td><td>${res}</td></tr>`}).join('');
+  $('frows').innerHTML=rows.slice(-10).reverse().map(frow).join('');
+  $('err').textContent=errStats(rows);
  }catch(e){$('sigdetail').textContent='記録待ち'}
 }
 loadPrice();loadForward();
