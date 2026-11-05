@@ -1,3 +1,4 @@
 entry_time,entry_close,pred_pips,threshold,signal,status,exit_time,exit_close,gross_pips,net_pips
 2026-11-03T07:35:00Z,157.78682,32.24,16.236,BUY,settled,2026-11-04T07:35:00Z,158.10838,32.16,31.16
-2026-11-04T08:35:00Z,158.14771,12.29,23.423,WAIT,open,,,,
+2026-11-04T08:35:00Z,158.14771,12.29,23.423,WAIT,settled,2026-11-05T08:35:00Z,158.23755,8.98,0.0
+2026-11-05T08:35:00Z,158.23755,5.06,28.25,WAIT,open,,,,
