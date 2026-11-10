@@ -1,0 +1,27 @@
+name: ml-daily
+on:
+  workflow_dispatch:
+    inputs:
+      test_months:
+        description: "検証する直近の月数"
+        default: "12"
+      cost_pips:
+        description: "往復コスト(pips)の仮定"
+        default: "1.0"
+permissions:
+  contents: read
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas numpy scikit-learn lightgbm xgboost
+      - name: Daily-decision backtest
+        env:
+          TEST_MONTHS: ${{ inputs.test_months }}
+          COST_PIPS: ${{ inputs.cost_pips }}
+        run: python ml/daily_backtest.py
