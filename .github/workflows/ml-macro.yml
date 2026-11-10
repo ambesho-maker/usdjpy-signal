@@ -1,0 +1,25 @@
+name: ml-macro
+on:
+  workflow_dispatch:
+    inputs:
+      reveal:
+        description: "最後の4か月の封印を解く(true/false)。開発期間で基準達成時のみ、1回だけ"
+        default: "false"
+permissions:
+  contents: read
+jobs:
+  macro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas numpy scikit-learn lightgbm
+      - name: Macro experiment
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          COST_PIPS: "1.0"
+          REVEAL: ${{ inputs.reveal }}
+        run: python ml/exp_macro.py
