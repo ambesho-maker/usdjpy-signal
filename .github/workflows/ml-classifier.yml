@@ -1,0 +1,32 @@
+name: ml-classifier
+on:
+  workflow_dispatch:
+    inputs:
+      reveal:
+        description: "最後の4か月の封印を解く(true/false)。開発期間で基準達成時のみ、1回だけ"
+        default: "false"
+      band_pips:
+        description: "「大きく動いた」とみなす幅(pips)。本命は15。10/20は副実験用"
+        default: "15"
+      horizons:
+        description: "対象ホライズン。本命は 4h,1d"
+        default: "4h,1d"
+permissions:
+  contents: read
+jobs:
+  classifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas numpy scikit-learn lightgbm
+      - name: Classifier experiment
+        env:
+          COST_PIPS: "1.0"
+          REVEAL: ${{ inputs.reveal }}
+          BAND_PIPS: ${{ inputs.band_pips }}
+          HORIZONS: ${{ inputs.horizons }}
+        run: python ml/exp_classifier.py
