@@ -1,9 +1,9 @@
 {
- "updated": "2026-11-13T09:05:57Z",
+ "updated": "2026-11-16T10:17:09Z",
  "cost_pips": 1.0,
- "records": 7,
- "wait": 6,
- "open": 0,
+ "records": 8,
+ "wait": 7,
+ "open": 1,
  "trades": 1,
  "wins": 1,
  "total_pips": 31.2,
